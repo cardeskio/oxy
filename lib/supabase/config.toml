@@ -1,0 +1,33 @@
+
+[functions.generate-monthly-invoices]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-monthly-invoices/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/generate-monthly-invoices/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/generate-monthly-invoices/*.html" ]
+
+[functions.allocate-payment]
+enabled = true
+verify_jwt = true
+import_map = "./functions/allocate-payment/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/allocate-payment/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/allocate-payment/*.html" ]
+
+[functions.void-invoice]
+enabled = true
+verify_jwt = true
+import_map = "./functions/void-invoice/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/void-invoice/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/void-invoice/*.html" ]
