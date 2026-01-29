@@ -8,14 +8,18 @@ class Formatters {
   static final _monthYearFormat = DateFormat('MMMM yyyy');
   static final _timeFormat = DateFormat('h:mm a');
   static final _dateTimeFormat = DateFormat('MMM d, yyyy h:mm a');
+  static final _dayOfWeekFormat = DateFormat('EEEE');
 
   static String currency(double amount) => _currencyFormat.format(amount);
   static String compactCurrency(double amount) => _compactCurrencyFormat.format(amount);
-  static String date(DateTime date) => _dateFormat.format(date);
-  static String shortDate(DateTime date) => _shortDateFormat.format(date);
-  static String monthYear(DateTime date) => _monthYearFormat.format(date);
-  static String time(DateTime date) => _timeFormat.format(date);
-  static String dateTime(DateTime date) => _dateTimeFormat.format(date);
+  
+  // Always convert to local time for display
+  static String date(DateTime date) => _dateFormat.format(date.toLocal());
+  static String shortDate(DateTime date) => _shortDateFormat.format(date.toLocal());
+  static String monthYear(DateTime date) => _monthYearFormat.format(date.toLocal());
+  static String time(DateTime date) => _timeFormat.format(date.toLocal());
+  static String dateTime(DateTime date) => _dateTimeFormat.format(date.toLocal());
+  static String dayOfWeek(DateTime date) => _dayOfWeekFormat.format(date.toLocal());
   
   static String phone(String phone) {
     if (phone.startsWith('+254')) {
@@ -25,8 +29,9 @@ class Formatters {
   }
 
   static String relativeDate(DateTime date) {
+    final localDate = date.toLocal();
     final now = DateTime.now();
-    final diff = now.difference(date);
+    final diff = now.difference(localDate);
     
     if (diff.inDays == 0) {
       if (diff.inHours == 0) {
@@ -37,7 +42,7 @@ class Formatters {
     }
     if (diff.inDays == 1) return 'Yesterday';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return shortDate(date);
+    return shortDate(localDate);
   }
 
   static String daysUntil(DateTime date) {

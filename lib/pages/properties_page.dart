@@ -31,7 +31,7 @@ class _PropertiesPageState extends State<PropertiesPage> {
           backgroundColor: AppColors.lightBackground,
           appBar: AppBar(
             backgroundColor: AppColors.primaryTeal,
-            title: const Text('Properties', style: TextStyle(color: Colors.white)),
+            title: const Text('Properties'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add, color: Colors.white),

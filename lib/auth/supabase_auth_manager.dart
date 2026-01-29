@@ -206,7 +206,7 @@ class SupabaseAuthManager extends AuthManager
       if (userId == null) return null;
       
       final updates = <String, dynamic>{
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
       if (fullName != null) updates['full_name'] = fullName;
       if (phone != null) updates['phone'] = phone;
@@ -252,8 +252,8 @@ class SupabaseAuthManager extends AuthManager
                      'User',
         'phone': supabaseUser.phone,
         'email': supabaseUser.email,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
       
       await _client.from('profiles').insert(profile);

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:oxy/theme.dart';
 import 'package:oxy/services/data_service.dart';
 import 'package:oxy/models/property.dart';
+import 'package:oxy/components/features_editor.dart';
 
 class AddPropertyPage extends StatefulWidget {
   const AddPropertyPage({super.key});
@@ -19,6 +20,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
   PropertyType _selectedType = PropertyType.residential;
+  List<String> _features = [];
   bool _isLoading = false;
 
   @override
@@ -45,6 +47,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
         type: _selectedType,
         locationText: _locationController.text.trim(),
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        features: _features,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -163,6 +166,18 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                     maxLines: 3,
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: FeaturesEditor(
+                features: _features,
+                onChanged: (features) => setState(() => _features = features),
               ),
             ),
             const SizedBox(height: 100),

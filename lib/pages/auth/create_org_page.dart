@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:oxy/services/org_service.dart';
 import 'package:oxy/services/auth_service.dart';
+import 'package:oxy/services/data_service.dart';
 import 'package:oxy/auth/supabase_auth_manager.dart';
 import 'package:oxy/components/auth_components.dart';
 import 'package:oxy/theme.dart';
@@ -19,6 +20,7 @@ class _CreateOrgPageState extends State<CreateOrgPage> {
   final _orgNameController = TextEditingController();
   final _orgService = OrgService();
   final _authService = AuthService();
+  final _dataService = DataService();
   final _authManager = SupabaseAuthManager();
   bool _isLoading = false;
 
@@ -53,6 +55,8 @@ class _CreateOrgPageState extends State<CreateOrgPage> {
 
       if (org != null && mounted) {
         await _authService.refresh();
+        // Initialize data service for the new org
+        await _dataService.initializeForOrg(org.id);
         context.go('/');
       }
     } finally {

@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:oxy/auth/supabase_auth_manager.dart';
 import 'package:oxy/components/auth_components.dart';
-import 'package:oxy/services/auth_service.dart';
 import 'package:oxy/theme.dart';
 
-enum SignupType { propertyOwner, tenant }
+enum SignupType { propertyOwner, tenant, serviceProvider }
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -21,7 +20,6 @@ class _SignupPageState extends State<SignupPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authManager = SupabaseAuthManager();
-  final _authService = AuthService();
 
   SignupType _signupType = SignupType.propertyOwner;
   bool _isLoading = false;
@@ -70,12 +68,11 @@ class _SignupPageState extends State<SignupPage> {
         );
 
         if (_signupType == SignupType.tenant) {
-          // Generate claim code for tenant
-          await _authService.refresh();
-          final claimCode = await _authService.generateClaimCode();
-          if (claimCode != null && mounted) {
-            context.go('/claim-code');
-          }
+          // Navigate to claim code page - it will handle code generation/display
+          if (mounted) context.go('/claim-code');
+        } else if (_signupType == SignupType.serviceProvider) {
+          // Navigate to service provider onboarding
+          if (mounted) context.go('/provider-onboarding');
         } else {
           // Redirect to create organization for property owners
           if (mounted) context.go('/create-org');
@@ -89,7 +86,6 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return AuthPageLayout(
       subtitle: 'Create your account',
@@ -108,24 +104,36 @@ class _SignupPageState extends State<SignupPage> {
               const SizedBox(height: 24),
               
               // Account type selector
-              Row(
+              Column(
                 children: [
-                  Expanded(
-                    child: _AccountTypeChip(
-                      icon: Icons.business_rounded,
-                      label: 'Property Owner',
-                      isSelected: _signupType == SignupType.propertyOwner,
-                      onTap: () => setState(() => _signupType = SignupType.propertyOwner),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _AccountTypeChip(
+                          icon: Icons.business_rounded,
+                          label: 'Property Owner',
+                          isSelected: _signupType == SignupType.propertyOwner,
+                          onTap: () => setState(() => _signupType = SignupType.propertyOwner),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _AccountTypeChip(
+                          icon: Icons.home_rounded,
+                          label: 'Tenant',
+                          isSelected: _signupType == SignupType.tenant,
+                          onTap: () => setState(() => _signupType = SignupType.tenant),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _AccountTypeChip(
-                      icon: Icons.home_rounded,
-                      label: 'Tenant',
-                      isSelected: _signupType == SignupType.tenant,
-                      onTap: () => setState(() => _signupType = SignupType.tenant),
-                    ),
+                  const SizedBox(height: 12),
+                  _AccountTypeChip(
+                    icon: Icons.storefront_rounded,
+                    label: 'Service Provider',
+                    isSelected: _signupType == SignupType.serviceProvider,
+                    onTap: () => setState(() => _signupType = SignupType.serviceProvider),
+                    subtitle: 'List your business on Oxy',
                   ),
                 ],
               ),
@@ -297,12 +305,14 @@ class _AccountTypeChip extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+  final String? subtitle;
 
   const _AccountTypeChip({
     required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.subtitle,
   });
 
   @override
@@ -314,7 +324,10 @@ class _AccountTypeChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        padding: EdgeInsets.symmetric(
+          vertical: subtitle != null ? 12 : 14,
+          horizontal: 12,
+        ),
         decoration: BoxDecoration(
           color: isSelected 
               ? colorScheme.primary.withValues(alpha: 0.12) 
@@ -337,14 +350,31 @@ class _AccountTypeChip extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isSelected 
+                            ? colorScheme.primary.withValues(alpha: 0.7) 
+                            : colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
               ),
             ),
           ],

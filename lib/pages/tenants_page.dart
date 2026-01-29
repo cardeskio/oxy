@@ -32,7 +32,7 @@ class _TenantsPageState extends State<TenantsPage> {
           backgroundColor: AppColors.lightBackground,
           appBar: AppBar(
             backgroundColor: AppColors.primaryTeal,
-            title: const Text('Tenants', style: TextStyle(color: Colors.white)),
+            title: const Text('Tenants'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.person_add, color: Colors.white),

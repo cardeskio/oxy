@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:oxy/components/auth_components.dart';
+import 'package:oxy/components/loading_indicator.dart';
 import 'package:oxy/services/auth_service.dart';
 import 'package:oxy/theme.dart';
 
@@ -30,11 +31,21 @@ class _ClaimCodePageState extends State<ClaimCodePage> {
     try {
       await _authService.refresh();
       
+      debugPrint('Auth refresh complete - userType: ${_authService.userType}, hasTenantAccess: ${_authService.hasTenantAccess}');
+      
+      // If user now has tenant access (code was claimed), redirect to portal
+      if (_authService.userType == UserType.tenant) {
+        debugPrint('User is now a tenant, redirecting to portal');
+        if (mounted) context.go('/tenant');
+        return;
+      }
+      
       if (_authService.claimCode == null) {
         final code = await _authService.generateClaimCode();
         _claimCode = code;
       } else {
         _claimCode = _authService.claimCode;
+        debugPrint('Claim code loaded - isClaimed: ${_claimCode?.isClaimed}');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -76,7 +87,7 @@ class _ClaimCodePageState extends State<ClaimCodePage> {
         ),
       ),
       child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const OxyLoadingOverlay(message: 'Loading...')
           : _buildContent(context, colorScheme, isDark),
     );
   }
@@ -108,12 +119,25 @@ class _ClaimCodePageState extends State<ClaimCodePage> {
                 label: 'Try Again',
                 onPressed: _loadOrGenerateCode,
               ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () async {
+                  await _authService.signOut();
+                  if (mounted) context.go('/login');
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                ),
+                child: const Text('Sign Out'),
+              ),
             ],
           ),
         ),
       );
     }
 
+    final userEmail = _authService.currentUser?.email ?? '';
+    
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
       child: Padding(
@@ -121,6 +145,27 @@ class _ClaimCodePageState extends State<ClaimCodePage> {
         child: Column(
           children: [
             const SizedBox(height: 24),
+            
+            // Logged in as
+            if (userEmail.isNotEmpty) ...[
+              Text(
+                'Logged in as',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                userEmail,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
             
             // Claim code display
             Text(
@@ -254,14 +299,10 @@ class _ClaimCodePageState extends State<ClaimCodePage> {
               const SizedBox(height: 16),
               AuthPrimaryButton(
                 label: 'Go to Tenant Portal',
-                onPressed: () => context.go('/tenant'),
-              ),
-            ] else ...[
-              AuthSecondaryButton(
-                label: 'Sign Out',
                 onPressed: () async {
-                  await _authService.signOut();
-                  if (mounted) context.go('/login');
+                  // Refresh auth state to pick up the new tenant link
+                  await _authService.refresh();
+                  if (mounted) context.go('/tenant');
                 },
               ),
             ],
@@ -272,6 +313,62 @@ class _ClaimCodePageState extends State<ClaimCodePage> {
                 foregroundColor: colorScheme.onSurfaceVariant,
               ),
               child: const Text('Refresh Status'),
+            ),
+            const SizedBox(height: 24),
+            
+            // Property owner option
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark 
+                    ? Colors.white.withValues(alpha: 0.04) 
+                    : AppColors.lightSurfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Are you a property owner/manager?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'If you manage properties and want to use Oxy to track tenants, payments, and maintenance.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () => context.go('/create-org'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primaryTeal,
+                      side: const BorderSide(color: AppColors.primaryTeal),
+                    ),
+                    child: const Text('Create Organization'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Sign out button
+            Center(
+              child: TextButton(
+                onPressed: () async {
+                  await _authService.signOut();
+                  if (mounted) context.go('/login');
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                ),
+                child: const Text('Sign Out'),
+              ),
             ),
             const SizedBox(height: 24),
           ],

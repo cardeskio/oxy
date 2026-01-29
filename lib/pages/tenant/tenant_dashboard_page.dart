@@ -1,154 +1,275 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:oxy/services/data_service.dart';
-import 'package:oxy/services/auth_service.dart';
+import 'package:oxy/services/tenant_service.dart';
 import 'package:oxy/components/stat_card.dart';
+import 'package:oxy/components/loading_indicator.dart';
+import 'package:oxy/components/notification_badge.dart';
 import 'package:oxy/utils/formatters.dart';
 import 'package:oxy/theme.dart';
 import 'package:oxy/models/invoice.dart';
 import 'package:oxy/models/payment.dart';
-import 'package:oxy/models/lease.dart';
 
-class TenantDashboardPage extends StatelessWidget {
+class TenantDashboardPage extends StatefulWidget {
   const TenantDashboardPage({super.key});
 
   @override
+  State<TenantDashboardPage> createState() => _TenantDashboardPageState();
+}
+
+class _TenantDashboardPageState extends State<TenantDashboardPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize tenant service if not already done
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final tenantService = context.read<TenantService>();
+      if (!tenantService.isLoading && tenantService.currentTenant == null) {
+        tenantService.initialize();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
-    final dataService = context.watch<DataService>();
+    return Consumer<TenantService>(
+      builder: (context, tenantService, _) {
+        if (tenantService.isLoading) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('My Rental')),
+            body: const OxyLoadingOverlay(message: 'Loading your rental...'),
+          );
+        }
 
-    if (authService.tenantLinks.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Dashboard')),
-        body: const Center(child: Text('No tenant account linked')),
-      );
-    }
+        if (tenantService.tenantLinks.isEmpty) {
+          // Redirect to explore page for users without tenant links
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              context.go('/tenant/explore');
+            }
+          });
+          return Scaffold(
+            appBar: AppBar(title: const Text('Dashboard')),
+            body: const Center(child: Text('Redirecting to explore...')),
+          );
+        }
 
-    final tenantLink = authService.tenantLinks.first;
-    final tenant = dataService.getTenantById(tenantLink.tenantId);
-    final activeLease = dataService.getActiveLeaseForTenant(tenantLink.tenantId);
-    
-    if (tenant == null || activeLease == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Dashboard')),
-        body: const Center(child: Text('No active lease found')),
-      );
-    }
+        final tenant = tenantService.currentTenant;
+        final activeLease = tenantService.activeLease;
+        
+        if (tenant == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Dashboard')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('Could not load tenant data'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => tenantService.refresh(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
-    final property = dataService.getPropertyById(activeLease.propertyId);
-    final unit = dataService.getUnitById(activeLease.unitId);
-    final tenantInvoices = dataService.getInvoicesForTenant(tenant.id);
-    final tenantPayments = dataService.getPaymentsForTenant(tenant.id);
-
-    final openInvoices = tenantInvoices.where((i) => i.status == InvoiceStatus.open).toList();
-    final totalBalance = openInvoices.fold(0.0, (sum, i) => sum + i.balanceAmount);
-    
-    final nextDueInvoice = openInvoices.isNotEmpty
-        ? openInvoices.reduce((a, b) => a.dueDate.isBefore(b.dueDate) ? a : b)
-        : null;
-
-    final recentActivity = _getRecentActivity(tenantInvoices, tenantPayments);
-
-    return Scaffold(
-      backgroundColor: AppColors.lightBackground,
-      appBar: AppBar(
-        title: const Text('My Rental'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+        // If no active lease, show appropriate message
+        if (activeLease == null) {
+          return Scaffold(
+            backgroundColor: AppColors.lightBackground,
+            appBar: AppBar(
+              title: const Text('My Rental'),
+            actions: const [
+              NotificationBadge(isTenantView: true),
+            ],
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => dataService.refresh(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildRentalSummaryCard(context, property?.name ?? 'Unknown Property', unit?.unitLabel ?? 'Unknown Unit', activeLease.rentAmount),
-              const SizedBox(height: 16),
-              Row(
+          body: RefreshIndicator(
+            onRefresh: () => tenantService.refresh(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: StatCard(
-                      title: 'Balance Due',
-                      value: Formatters.currency(totalBalance),
-                      icon: Icons.account_balance_wallet,
-                      iconColor: totalBalance > 0 ? AppColors.error : AppColors.success,
+                  const SizedBox(height: 60),
+                  Icon(Icons.home_outlined, size: 80, color: Colors.grey.shade300),
+                    const SizedBox(height: 24),
+                    Text(
+                      'No Active Lease',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: StatCard(
-                      title: nextDueInvoice != null ? 'Next Due' : 'No Pending Bills',
-                      value: nextDueInvoice != null ? Formatters.shortDate(nextDueInvoice.dueDate) : '-',
-                      icon: Icons.calendar_today,
-                      iconColor: AppColors.info,
-                      subtitle: nextDueInvoice != null ? Formatters.daysUntil(nextDueInvoice.dueDate) : null,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Quick Actions',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  QuickActionCard(
-                    title: 'View Invoices',
-                    icon: Icons.receipt_long,
-                    color: AppColors.primaryTeal,
-                    onTap: () {},
-                  ),
-                  QuickActionCard(
-                    title: 'View Payments',
-                    icon: Icons.payment,
-                    color: AppColors.success,
-                    onTap: () {},
-                  ),
-                  QuickActionCard(
-                    title: 'Report Issue',
-                    icon: Icons.build,
-                    color: AppColors.warning,
-                    onTap: () {},
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Recent Activity',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              if (recentActivity.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'No recent activity',
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your account is set up but you don\'t have an active lease yet. Please contact your property manager.',
+                      textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.lightOnSurfaceVariant,
                       ),
                     ),
-                  ),
-                )
-              else
-                ...recentActivity.map((activity) => _buildActivityItem(context, activity)),
+                    const SizedBox(height: 32),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildInfoRow('Name', tenant.fullName),
+                          const Divider(height: 24),
+                          _buildInfoRow('Phone', Formatters.phone(tenant.phone)),
+                          if (tenant.email != null) ...[
+                            const Divider(height: 24),
+                            _buildInfoRow('Email', tenant.email!),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final property = tenantService.property;
+        final unit = tenantService.unit;
+        final totalBalance = tenantService.totalBalance;
+        final openInvoices = tenantService.openInvoices;
+        
+        final nextDueInvoice = openInvoices.isNotEmpty
+            ? openInvoices.reduce((a, b) => a.dueDate.isBefore(b.dueDate) ? a : b)
+            : null;
+
+        final recentActivity = _getRecentActivity(tenantService.invoices, tenantService.payments);
+
+        return Scaffold(
+          backgroundColor: AppColors.lightBackground,
+          appBar: AppBar(
+            title: const Text('My Rental'),
+            actions: const [
+              NotificationBadge(isTenantView: true),
             ],
           ),
-        ),
-      ),
+          body: RefreshIndicator(
+            onRefresh: () => tenantService.refresh(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildRentalSummaryCard(
+                    context, 
+                    property?.name ?? 'Unknown Property', 
+                    unit?.unitLabel ?? 'Unknown Unit', 
+                    activeLease.rentAmount,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: StatCard(
+                          title: 'Balance Due',
+                          value: Formatters.currency(totalBalance),
+                          icon: Icons.account_balance_wallet,
+                          iconColor: totalBalance > 0 ? AppColors.error : AppColors.success,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: StatCard(
+                          title: nextDueInvoice != null ? 'Next Due' : 'No Pending Bills',
+                          value: nextDueInvoice != null ? Formatters.shortDate(nextDueInvoice.dueDate) : '-',
+                          icon: Icons.calendar_today,
+                          iconColor: AppColors.info,
+                          subtitle: nextDueInvoice != null ? Formatters.daysUntil(nextDueInvoice.dueDate) : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Quick Actions',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      QuickActionCard(
+                        title: 'View Invoices',
+                        icon: Icons.receipt_long,
+                        color: AppColors.primaryTeal,
+                        onTap: () => context.go('/tenant/invoices'),
+                      ),
+                      QuickActionCard(
+                        title: 'View Payments',
+                        icon: Icons.payment,
+                        color: AppColors.success,
+                        onTap: () => context.go('/tenant/payments'),
+                      ),
+                      QuickActionCard(
+                        title: 'Report Issue',
+                        icon: Icons.build,
+                        color: AppColors.warning,
+                        onTap: () => context.go('/tenant/maintenance'),
+                      ),
+                      QuickActionCard(
+                        title: 'My Lease',
+                        icon: Icons.description,
+                        color: AppColors.info,
+                        onTap: () => context.go('/tenant/lease'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Recent Activity',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  if (recentActivity.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No recent activity',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.lightOnSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ...recentActivity.map((activity) => _buildActivityItem(context, activity)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: AppColors.lightOnSurfaceVariant)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ],
     );
   }
 
@@ -265,7 +386,7 @@ class TenantDashboardPage extends StatelessWidget {
     }
     
     activities.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
-    return activities.take(3).toList();
+    return activities.take(5).toList();
   }
 
   Widget _buildActivityItem(BuildContext context, Map<String, dynamic> activity) {

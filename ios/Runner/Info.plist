@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Dreamflow</string>
+	<string>Oxy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>dreamflow</string>
+	<string>Oxy</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -45,5 +45,13 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Oxy uses your location to show nearby service providers, amenities, and community posts in your area.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Oxy uses your location to show nearby service providers, amenities, and community posts in your area.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Oxy needs access to your photo library to let you upload images for posts and listings.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Oxy needs access to your camera to let you take photos for posts and listings.</string>
 </dict>
 </plist>

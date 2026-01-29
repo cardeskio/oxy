@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:oxy/nav.dart';
 import 'package:oxy/theme.dart';
+import 'package:oxy/utils/icons.dart';
 
 class AdminShell extends StatefulWidget {
   final Widget child;
@@ -63,36 +65,31 @@ class _AdminShellState extends State<AdminShell> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.dashboard_outlined,
-                  activeIcon: Icons.dashboard,
+                  icon: AppIcons.dashboard,
                   label: 'Dashboard',
                   isSelected: _getCurrentIndex(context) == 0,
                   onTap: () => _onItemTapped(0),
                 ),
                 _NavItem(
-                  icon: Icons.apartment_outlined,
-                  activeIcon: Icons.apartment,
+                  icon: AppIcons.properties,
                   label: 'Properties',
                   isSelected: _getCurrentIndex(context) == 1,
                   onTap: () => _onItemTapped(1),
                 ),
                 _NavItem(
-                  icon: Icons.people_outline,
-                  activeIcon: Icons.people,
+                  icon: AppIcons.tenants,
                   label: 'Tenants',
                   isSelected: _getCurrentIndex(context) == 2,
                   onTap: () => _onItemTapped(2),
                 ),
                 _NavItem(
-                  icon: Icons.receipt_long_outlined,
-                  activeIcon: Icons.receipt_long,
+                  icon: AppIcons.invoices,
                   label: 'Invoices',
                   isSelected: _getCurrentIndex(context) == 3,
                   onTap: () => _onItemTapped(3),
                 ),
                 _NavItem(
-                  icon: Icons.more_horiz_outlined,
-                  activeIcon: Icons.more_horiz,
+                  icon: AppIcons.more,
                   label: 'More',
                   isSelected: _getCurrentIndex(context) == 4,
                   onTap: () => _onItemTapped(4),
@@ -108,14 +105,12 @@ class _AdminShellState extends State<AdminShell> {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
-  final IconData activeIcon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
-    required this.activeIcon,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -139,16 +134,15 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? activeIcon : icon,
+            HugeIcon(
+              icon: icon,
               color: isSelected ? AppColors.primaryTeal : AppColors.lightOnSurfaceVariant,
               size: 24,
             ),
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected ? AppColors.primaryTeal : AppColors.lightOnSurfaceVariant,
               ),

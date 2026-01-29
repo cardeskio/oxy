@@ -18,7 +18,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _idController = TextEditingController();
-  final _emailController = TextEditingController();
   final _kinNameController = TextEditingController();
   final _kinPhoneController = TextEditingController();
   bool _isLoading = false;
@@ -28,7 +27,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
     _nameController.dispose();
     _phoneController.dispose();
     _idController.dispose();
-    _emailController.dispose();
     _kinNameController.dispose();
     _kinPhoneController.dispose();
     super.dispose();
@@ -54,7 +52,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
         fullName: _nameController.text.trim(),
         phone: phone,
         idNumber: _idController.text.trim().isEmpty ? null : _idController.text.trim(),
-        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+        // Note: email is not set by admin - it comes from the linked user account
         nextOfKinName: _kinNameController.text.trim().isEmpty ? null : _kinNameController.text.trim(),
         nextOfKinPhone: _kinPhoneController.text.trim().isEmpty ? null : _kinPhoneController.text.trim(),
         createdAt: DateTime.now(),
@@ -90,7 +88,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Add Tenant', style: TextStyle(color: Colors.white)),
+        title: const Text('Add Tenant'),
       ),
       body: Form(
         key: _formKey,
@@ -143,15 +141,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
+                  // Note: Email is not set here - it comes from tenant's linked account
                 ],
               ),
             ),

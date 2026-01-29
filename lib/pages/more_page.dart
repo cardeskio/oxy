@@ -7,6 +7,7 @@ import 'package:oxy/services/data_service.dart';
 import 'package:oxy/services/auth_service.dart';
 import 'package:oxy/services/org_service.dart';
 import 'package:oxy/models/org.dart';
+import 'package:oxy/models/property_enquiry.dart';
 
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
@@ -24,7 +25,7 @@ class MorePage extends StatelessWidget {
           backgroundColor: AppColors.lightBackground,
           appBar: AppBar(
             backgroundColor: AppColors.primaryTeal,
-            title: const Text('More', style: TextStyle(color: Colors.white)),
+            title: const Text('More'),
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
@@ -110,6 +111,20 @@ class MorePage extends StatelessWidget {
                     subtitle: '${dataService.openTicketsCount} open tickets',
                     badge: dataService.openTicketsCount > 0 ? '${dataService.openTicketsCount}' : null,
                     onTap: () => context.push(AppRoutes.maintenance),
+                  ),
+                  _MenuItem(
+                    icon: Icons.receipt_long_outlined,
+                    iconColor: AppColors.primaryTeal,
+                    title: 'Charges & Billing',
+                    subtitle: 'Manage unit charges, generate invoices',
+                    onTap: () => context.push(AppRoutes.charges),
+                  ),
+                  _MenuItem(
+                    icon: Icons.mail_outline,
+                    iconColor: AppColors.warning,
+                    title: 'Property Enquiries',
+                    subtitle: '${dataService.enquiries.where((e) => e.status == EnquiryStatus.pending).length} pending enquiries',
+                    onTap: () => context.push(AppRoutes.enquiries),
                   ),
                   _MenuItem(
                     icon: Icons.description_outlined,
@@ -268,7 +283,7 @@ class MorePage extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      'PropManager KE',
+                      'Oxy',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.lightOnSurfaceVariant,
                       ),

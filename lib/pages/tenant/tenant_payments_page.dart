@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:oxy/theme.dart';
-import 'package:oxy/services/data_service.dart';
-import 'package:oxy/services/auth_service.dart';
+import 'package:oxy/services/tenant_service.dart';
 import 'package:oxy/models/payment.dart';
 import 'package:oxy/components/empty_state.dart';
 import 'package:oxy/utils/formatters.dart';
@@ -12,27 +12,62 @@ class TenantPaymentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-    final tenantId = authService.tenantLinks.isNotEmpty ? authService.tenantLinks.first.tenantId : null;
+    return Consumer<TenantService>(
+      builder: (context, tenantService, _) {
+        if (tenantService.isLoading) {
+          return Scaffold(
+            backgroundColor: AppColors.lightBackground,
+            appBar: AppBar(
+              backgroundColor: AppColors.primaryTeal,
+              title: const Text('My Payments', style: TextStyle(color: Colors.white)),
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    if (tenantId == null) {
-      return Scaffold(
-        backgroundColor: AppColors.lightBackground,
-        appBar: AppBar(
-          backgroundColor: AppColors.primaryTeal,
-          title: const Text('My Payments', style: TextStyle(color: Colors.white)),
-        ),
-        body: const EmptyState(
-          icon: Icons.error_outline,
-          title: 'No Tenant Access',
-          message: 'You are not linked to any tenant account.',
-        ),
-      );
-    }
+        if (tenantService.currentTenant == null) {
+          return Scaffold(
+            backgroundColor: AppColors.lightBackground,
+            appBar: AppBar(
+              backgroundColor: AppColors.primaryTeal,
+              title: const Text('My Payments', style: TextStyle(color: Colors.white)),
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.home_outlined, size: 80, color: Colors.grey.shade300),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Not Linked Yet',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'You\'ll have access to payment history once you\'re linked to a property. Browse available properties or share your claim code with a property manager.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.lightOnSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () => context.go('/tenant/explore'),
+                      icon: const Icon(Icons.search),
+                      label: const Text('Explore Properties'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
-    return Consumer<DataService>(
-      builder: (context, dataService, _) {
-        final payments = dataService.payments.where((p) => p.tenantId == tenantId).toList()
+        final payments = tenantService.payments.toList()
           ..sort((a, b) => b.paidAt.compareTo(a.paidAt));
 
         return Scaffold(
@@ -41,23 +76,32 @@ class TenantPaymentsPage extends StatelessWidget {
             backgroundColor: AppColors.primaryTeal,
             title: const Text('My Payments', style: TextStyle(color: Colors.white)),
           ),
-          body: payments.isEmpty
-              ? const EmptyState(
-                  icon: Icons.payment,
-                  title: 'No Payments',
-                  message: 'You haven\'t made any payments yet.',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: payments.length,
-                  itemBuilder: (context, index) {
-                    final payment = payments[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: PaymentCard(payment: payment),
-                    );
-                  },
-                ),
+          body: RefreshIndicator(
+            onRefresh: () => tenantService.refresh(),
+            child: payments.isEmpty
+                ? const SingleChildScrollView(
+                    physics: AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: 400,
+                      child: EmptyState(
+                        icon: Icons.payment,
+                        title: 'No Payments',
+                        message: 'You haven\'t made any payments yet.',
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: payments.length,
+                    itemBuilder: (context, index) {
+                      final payment = payments[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: PaymentCard(payment: payment),
+                      );
+                    },
+                  ),
+          ),
         );
       },
     );

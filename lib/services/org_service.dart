@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:oxy/models/org.dart';
-import 'package:oxy/models/user.dart';
 import 'package:oxy/models/vendor.dart';
 import 'package:oxy/models/charge_type.dart';
 import 'package:oxy/supabase/supabase_config.dart';
@@ -132,73 +131,37 @@ class OrgService extends ChangeNotifier {
   }
 
   /// Create a new organization
+  /// Uses a SECURITY DEFINER function to atomically create org + membership
   Future<Org?> createOrg(String name, String userId, {String country = 'KE'}) async {
     try {
-      final now = DateTime.now();
-      final orgId = _generateUuid();
+      // Call the database function that handles everything atomically
+      final response = await SupabaseConfig.client.rpc(
+        'create_org_with_owner',
+        params: {
+          'p_org_name': name,
+          'p_country': country,
+        },
+      );
       
-      // Create org
-      final orgData = {
-        'id': orgId,
-        'name': name,
-        'country': country,
-        'created_at': now.toIso8601String(),
-        'updated_at': now.toIso8601String(),
-      };
+      if (response == null) {
+        debugPrint('Error creating org: No response from function');
+        return null;
+      }
       
-      await SupabaseService.insert('orgs', orgData);
-      
-      // Add creator as owner
-      final memberData = {
-        'id': _generateUuid(),
-        'org_id': orgId,
-        'user_id': userId,
-        'role': 'owner',
-        'created_at': now.toIso8601String(),
-        'updated_at': now.toIso8601String(),
-      };
-      
-      await SupabaseService.insert('org_members', memberData);
-      
-      // Create default charge types
-      await _createDefaultChargeTypes(orgId);
+      // Parse the returned org data
+      final orgData = response is Map<String, dynamic> 
+          ? response 
+          : (response as Map).cast<String, dynamic>();
       
       final org = Org.fromJson(orgData);
       _userOrgs.add(org);
-      await selectOrg(orgId, userId);
+      await selectOrg(org.id, userId);
       
       notifyListeners();
       return org;
     } catch (e) {
       debugPrint('Error creating org: $e');
       return null;
-    }
-  }
-
-  /// Create default charge types for a new org
-  Future<void> _createDefaultChargeTypes(String orgId) async {
-    final now = DateTime.now();
-    final defaultTypes = [
-      {'name': 'Rent', 'is_recurring': true},
-      {'name': 'Water', 'is_recurring': true},
-      {'name': 'Garbage', 'is_recurring': true},
-      {'name': 'Service Charge', 'is_recurring': true},
-      {'name': 'Parking', 'is_recurring': true},
-      {'name': 'Electricity', 'is_recurring': false},
-      {'name': 'Security', 'is_recurring': true},
-      {'name': 'Penalty', 'is_recurring': false},
-      {'name': 'Deposit', 'is_recurring': false},
-    ];
-    
-    for (final type in defaultTypes) {
-      await SupabaseService.insert('charge_types', {
-        'id': _generateUuid(),
-        'org_id': orgId,
-        'name': type['name'],
-        'is_recurring': type['is_recurring'],
-        'created_at': now.toIso8601String(),
-        'updated_at': now.toIso8601String(),
-      });
     }
   }
 
@@ -234,7 +197,7 @@ class OrgService extends ChangeNotifier {
     try {
       await SupabaseService.update(
         'org_members',
-        {'role': newRole.value, 'updated_at': DateTime.now().toIso8601String()},
+        {'role': newRole.value, 'updated_at': DateTime.now().toUtc().toIso8601String()},
         filters: {'id': memberId},
       );
       

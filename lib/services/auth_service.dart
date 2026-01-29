@@ -7,7 +7,7 @@ import 'package:oxy/supabase/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// User type enumeration
-enum UserType { admin, tenant, unknown }
+enum UserType { admin, tenant, serviceProvider, unknown }
 
 /// Tenant claim code model
 class TenantClaimCode {
@@ -19,6 +19,10 @@ class TenantClaimCode {
   final DateTime? claimedAt;
   final DateTime expiresAt;
   final DateTime createdAt;
+  // Profile snapshot (stored at code generation time)
+  final String? userName;
+  final String? userEmail;
+  final String? userPhone;
 
   TenantClaimCode({
     required this.id,
@@ -29,6 +33,9 @@ class TenantClaimCode {
     this.claimedAt,
     required this.expiresAt,
     required this.createdAt,
+    this.userName,
+    this.userEmail,
+    this.userPhone,
   });
 
   bool get isClaimed => claimedAt != null;
@@ -44,6 +51,9 @@ class TenantClaimCode {
     claimedAt: json['claimed_at'] != null ? DateTime.parse(json['claimed_at'] as String) : null,
     expiresAt: DateTime.parse(json['expires_at'] as String),
     createdAt: DateTime.parse(json['created_at'] as String),
+    userName: json['user_name'] as String?,
+    userEmail: json['user_email'] as String?,
+    userPhone: json['user_phone'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -105,6 +115,7 @@ class AuthService extends ChangeNotifier {
   List<TenantUserLink> get tenantLinks => _tenantLinks;
   List<OrgMember> get orgMemberships => _orgMemberships;
   bool get isLoading => _isLoading;
+  bool get isInitialized => _isInitialized;
   bool get isAuthenticated => _authManager.isAuthenticated;
   String? get currentUserId => _authManager.currentUserId;
 
@@ -154,13 +165,28 @@ class AuthService extends ChangeNotifier {
         _claimCode = TenantClaimCode.fromJson(claimCodes.first);
       }
 
+      // Check if user is a service provider
+      final providerCheck = await SupabaseConfig.client
+          .from('service_providers')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+      
+      final isServiceProvider = providerCheck != null;
+
       // Determine user type
+      // Priority: Admin > Service Provider > Tenant
+      // Admin: has org memberships
+      // Service Provider: has service_providers record
+      // Tenant: everyone else (with or without tenant links)
       if (_orgMemberships.isNotEmpty) {
         _userType = UserType.admin;
-      } else if (_tenantLinks.isNotEmpty) {
-        _userType = UserType.tenant;
+      } else if (isServiceProvider) {
+        _userType = UserType.serviceProvider;
       } else {
-        _userType = UserType.unknown;
+        // All other non-admin users are treated as tenants
+        // They can explore properties even without being linked to a unit
+        _userType = UserType.tenant;
       }
 
       _isInitialized = true;
@@ -183,6 +209,13 @@ class AuthService extends ChangeNotifier {
         return _claimCode;
       }
 
+      // Get current user's profile data to store in claim code
+      final profile = await SupabaseConfig.client
+          .from('profiles')
+          .select('full_name, email, phone')
+          .eq('id', userId)
+          .maybeSingle();
+
       // Generate unique 6-character code
       final code = _generateUniqueCode();
       final now = DateTime.now();
@@ -191,6 +224,9 @@ class AuthService extends ChangeNotifier {
       final data = {
         'code': code,
         'user_id': userId,
+        'user_name': profile?['full_name'],
+        'user_email': profile?['email'],
+        'user_phone': profile?['phone'],
         'expires_at': expiresAt.toIso8601String(),
         'created_at': now.toIso8601String(),
       };
@@ -222,7 +258,7 @@ class AuthService extends ChangeNotifier {
     try {
       final result = await SupabaseConfig.client
           .from('tenant_claim_codes')
-          .select('*, profiles!tenant_claim_codes_user_id_fkey(*)')
+          .select('*')
           .eq('code', code.toUpperCase())
           .maybeSingle();
       
@@ -260,7 +296,7 @@ class AuthService extends ChangeNotifier {
           .update({
             'org_id': orgId,
             'tenant_id': tenantId,
-            'claimed_at': DateTime.now().toIso8601String(),
+            'claimed_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', claimCode.id);
 
@@ -271,13 +307,25 @@ class AuthService extends ChangeNotifier {
             'user_id': claimCode.userId,
             'tenant_id': tenantId,
             'org_id': orgId,
-            'created_at': DateTime.now().toIso8601String(),
+            'created_at': DateTime.now().toUtc().toIso8601String(),
           });
 
-      // Update tenant record with user_id
+      // Get the user's email from their profile
+      final userProfile = await SupabaseConfig.client
+          .from('profiles')
+          .select('email')
+          .eq('id', claimCode.userId)
+          .maybeSingle();
+      
+      // Update tenant record with user_id and email from the user's profile
+      final updateData = <String, dynamic>{'user_id': claimCode.userId};
+      if (userProfile != null && userProfile['email'] != null) {
+        updateData['email'] = userProfile['email'];
+      }
+      
       await SupabaseConfig.client
           .from('tenants')
-          .update({'user_id': claimCode.userId})
+          .update(updateData)
           .eq('id', tenantId);
 
       return true;

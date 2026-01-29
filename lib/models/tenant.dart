@@ -53,19 +53,23 @@ class Tenant {
     updatedAt: updatedAt ?? this.updatedAt,
   );
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'org_id': orgId,
-    'full_name': fullName,
-    'phone': phone,
-    'id_number': idNumber,
-    'email': email,
-    'next_of_kin_name': nextOfKinName,
-    'next_of_kin_phone': nextOfKinPhone,
-    'user_id': userId,
-    'created_at': createdAt.toIso8601String(),
-    'updated_at': updatedAt.toIso8601String(),
-  };
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'id': id,
+      'org_id': orgId,
+      'full_name': fullName,
+      'phone': phone,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+    // Only include optional fields if they have values
+    if (idNumber != null) json['id_number'] = idNumber;
+    if (email != null) json['email'] = email;
+    if (nextOfKinName != null) json['next_of_kin_name'] = nextOfKinName;
+    if (nextOfKinPhone != null) json['next_of_kin_phone'] = nextOfKinPhone;
+    if (userId != null) json['user_id'] = userId;
+    return json;
+  }
 
   factory Tenant.fromJson(Map<String, dynamic> json) => Tenant(
     id: json['id'] as String,

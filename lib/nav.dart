@@ -20,6 +20,7 @@ import 'package:oxy/pages/add_tenant_page.dart';
 import 'package:oxy/pages/add_lease_page.dart';
 import 'package:oxy/pages/add_payment_page.dart';
 import 'package:oxy/pages/add_ticket_page.dart';
+import 'package:oxy/pages/charges_page.dart';
 
 // Auth pages
 import 'package:oxy/pages/auth/login_page.dart';
@@ -29,6 +30,15 @@ import 'package:oxy/pages/auth/claim_code_page.dart';
 import 'package:oxy/pages/auth/create_org_page.dart';
 import 'package:oxy/pages/auth/link_tenant_page.dart';
 
+// Provider pages
+import 'package:oxy/pages/provider/provider_onboarding_page.dart';
+import 'package:oxy/pages/provider/provider_shell.dart';
+import 'package:oxy/pages/provider/provider_dashboard_page.dart';
+import 'package:oxy/pages/provider/provider_listings_page.dart';
+import 'package:oxy/pages/provider/provider_orders_page.dart';
+import 'package:oxy/pages/provider/provider_reviews_page.dart';
+import 'package:oxy/pages/provider/provider_more_page.dart';
+
 // Tenant pages
 import 'package:oxy/pages/tenant/tenant_shell.dart';
 import 'package:oxy/pages/tenant/tenant_dashboard_page.dart';
@@ -36,16 +46,41 @@ import 'package:oxy/pages/tenant/tenant_invoices_page.dart';
 import 'package:oxy/pages/tenant/tenant_payments_page.dart';
 import 'package:oxy/pages/tenant/tenant_more_page.dart';
 import 'package:oxy/pages/tenant/tenant_maintenance_page.dart';
-
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
-final _adminShellNavigatorKey = GlobalKey<NavigatorState>();
-final _tenantShellNavigatorKey = GlobalKey<NavigatorState>();
+import 'package:oxy/pages/tenant/tenant_profile_page.dart';
+import 'package:oxy/pages/tenant/tenant_explore_page.dart';
+import 'package:oxy/pages/tenant/tenant_lease_page.dart';
+import 'package:oxy/pages/tenant/tenant_ticket_detail_page.dart';
+import 'package:oxy/pages/tenant/move_out_request_page.dart';
+import 'package:oxy/pages/tenant/tenant_enquiries_page.dart';
+import 'package:oxy/pages/tenant/tenant_living_page.dart';
+import 'package:oxy/pages/tenant/tenant_orders_page.dart';
+import 'package:oxy/pages/tenant/tenant_cart_page.dart';
+import 'package:oxy/pages/ticket_detail_page.dart';
+import 'package:oxy/pages/enquiries_page.dart';
+import 'package:oxy/pages/notifications_page.dart';
 
 class AppRouter {
   static final SupabaseAuthManager _authManager = SupabaseAuthManager();
-  static final AuthService _authService = AuthService();
+  static AuthService? _authServiceInstance;
+  
+  static AuthService get _authService {
+    _authServiceInstance ??= AuthService();
+    return _authServiceInstance!;
+  }
 
-  static final GoRouter router = GoRouter(
+  // Navigator keys - created once per router instance
+  static final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+  static final _adminShellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'adminShell');
+  static final _tenantShellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'tenantShell');
+  static final _providerShellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'providerShell');
+
+  static GoRouter? _routerInstance;
+  
+  static GoRouter get router {
+    return _routerInstance ??= _createRouter();
+  }
+  
+  static GoRouter _createRouter() => GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.login,
     redirect: (context, state) async {
@@ -59,82 +94,35 @@ class AppRouter {
         AppRoutes.forgotPassword,
       ];
       
-      // Onboarding routes (authenticated but no org/tenant yet)
-      final onboardingRoutes = [
-        AppRoutes.claimCode,
-        AppRoutes.createOrg,
-      ];
-      
       final isPublicRoute = publicRoutes.contains(currentPath);
-      final isOnboardingRoute = onboardingRoutes.contains(currentPath);
-      
-      // Admin routes (require org membership)
-      final isAdminRoute = currentPath == AppRoutes.dashboard ||
-          currentPath == AppRoutes.properties ||
-          currentPath == AppRoutes.tenants ||
-          currentPath == AppRoutes.invoices ||
-          currentPath == AppRoutes.more ||
-          currentPath.startsWith('/properties/') ||
-          currentPath.startsWith('/tenants/') ||
-          currentPath.startsWith('/invoices/') ||
-          currentPath == AppRoutes.payments ||
-          currentPath == AppRoutes.maintenance ||
-          currentPath == AppRoutes.addProperty ||
-          currentPath == AppRoutes.addTenant ||
-          currentPath == AppRoutes.addLease ||
-          currentPath == AppRoutes.addPayment ||
-          currentPath == AppRoutes.addTicket;
-      
-      // Tenant routes
-      final isTenantRoute = currentPath.startsWith('/tenant');
       
       // If not authenticated and trying to access protected route
       if (!isAuthenticated && !isPublicRoute) {
         return AppRoutes.login;
       }
       
-      // If authenticated, always initialize auth service to get user type
-      if (isAuthenticated) {
-        await _authService.initialize();
+      // If authenticated and on public route, redirect to appropriate dashboard
+      if (isAuthenticated && isPublicRoute) {
+        // Initialize auth service if needed
+        if (!_authService.isInitialized) {
+          await _authService.initialize();
+        }
         
-        // On public routes, redirect to appropriate dashboard
-        if (isPublicRoute) {
-          if (_authService.userType == UserType.admin) {
-            return AppRoutes.dashboard;
-          } else if (_authService.userType == UserType.tenant) {
+        if (_authService.userType == UserType.admin) {
+          return AppRoutes.dashboard;
+        } else if (_authService.userType == UserType.serviceProvider) {
+          return AppRoutes.providerDashboard;
+        } else {
+          // All non-admin users go to tenant side
+          if (_authService.tenantLinks.isNotEmpty) {
             return AppRoutes.tenantDashboard;
           } else {
-            // User has no role - check if they have a claim code
-            if (_authService.claimCode != null && !_authService.claimCode!.isClaimed) {
-              return AppRoutes.claimCode;
-            }
-            // Otherwise, they need to create an org
-            return AppRoutes.createOrg;
+            return AppRoutes.tenantExplore;
           }
-        }
-        
-        // If user has unknown type (no org or tenant link) and trying to access admin/tenant routes
-        if (_authService.userType == UserType.unknown) {
-          if (isAdminRoute || isTenantRoute) {
-            // Redirect to onboarding
-            if (_authService.claimCode != null && !_authService.claimCode!.isClaimed) {
-              return AppRoutes.claimCode;
-            }
-            return AppRoutes.createOrg;
-          }
-        }
-        
-        // If admin trying to access tenant routes, redirect to admin dashboard
-        if (_authService.userType == UserType.admin && isTenantRoute) {
-          return AppRoutes.dashboard;
-        }
-        
-        // If tenant trying to access admin routes, redirect to tenant dashboard
-        if (_authService.userType == UserType.tenant && isAdminRoute) {
-          return AppRoutes.tenantDashboard;
         }
       }
       
+      // No redirect needed
       return null;
     },
     routes: [
@@ -142,27 +130,32 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.login,
         name: 'login',
-        pageBuilder: (context, state) => const NoTransitionPage(child: LoginPage()),
+        builder: (context, state) => const LoginPage(),
       ),
       GoRoute(
         path: AppRoutes.signup,
         name: 'signup',
-        pageBuilder: (context, state) => const NoTransitionPage(child: SignupPage()),
+        builder: (context, state) => const SignupPage(),
       ),
       GoRoute(
         path: AppRoutes.forgotPassword,
         name: 'forgotPassword',
-        pageBuilder: (context, state) => const NoTransitionPage(child: ForgotPasswordPage()),
+        builder: (context, state) => const ForgotPasswordPage(),
       ),
       GoRoute(
         path: AppRoutes.claimCode,
         name: 'claimCode',
-        pageBuilder: (context, state) => const NoTransitionPage(child: ClaimCodePage()),
+        builder: (context, state) => const ClaimCodePage(),
       ),
       GoRoute(
         path: AppRoutes.createOrg,
         name: 'createOrg',
-        pageBuilder: (context, state) => const NoTransitionPage(child: CreateOrgPage()),
+        builder: (context, state) => const CreateOrgPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.providerOnboarding,
+        name: 'providerOnboarding',
+        builder: (context, state) => const ProviderOnboardingPage(),
       ),
 
       // ==================== ADMIN SHELL ROUTES ====================
@@ -173,27 +166,27 @@ class AppRouter {
           GoRoute(
             path: AppRoutes.dashboard,
             name: 'dashboard',
-            pageBuilder: (context, state) => const NoTransitionPage(child: DashboardPage()),
+            builder: (context, state) => const DashboardPage(),
           ),
           GoRoute(
             path: AppRoutes.properties,
             name: 'properties',
-            pageBuilder: (context, state) => const NoTransitionPage(child: PropertiesPage()),
+            builder: (context, state) => const PropertiesPage(),
           ),
           GoRoute(
             path: AppRoutes.tenants,
             name: 'tenants',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TenantsPage()),
+            builder: (context, state) => const TenantsPage(),
           ),
           GoRoute(
             path: AppRoutes.invoices,
             name: 'invoices',
-            pageBuilder: (context, state) => const NoTransitionPage(child: InvoicesPage()),
+            builder: (context, state) => const InvoicesPage(),
           ),
           GoRoute(
             path: AppRoutes.more,
             name: 'more',
-            pageBuilder: (context, state) => const NoTransitionPage(child: MorePage()),
+            builder: (context, state) => const MorePage(),
           ),
         ],
       ),
@@ -206,22 +199,80 @@ class AppRouter {
           GoRoute(
             path: AppRoutes.tenantDashboard,
             name: 'tenantDashboard',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TenantDashboardPage()),
+            builder: (context, state) => const TenantDashboardPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.tenantExplore,
+            name: 'tenantExplore',
+            builder: (context, state) => const TenantExplorePage(),
+          ),
+          GoRoute(
+            path: AppRoutes.tenantLiving,
+            name: 'tenantLiving',
+            builder: (context, state) => const TenantLivingPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.tenantEnquiries,
+            name: 'tenantEnquiries',
+            builder: (context, state) => const TenantEnquiriesPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.tenantOrders,
+            name: 'tenantOrders',
+            builder: (context, state) => const TenantOrdersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.tenantCart,
+            name: 'tenantCart',
+            builder: (context, state) => const TenantCartPage(),
           ),
           GoRoute(
             path: AppRoutes.tenantInvoices,
             name: 'tenantInvoices',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TenantInvoicesPage()),
+            builder: (context, state) => const TenantInvoicesPage(),
           ),
           GoRoute(
             path: AppRoutes.tenantPayments,
             name: 'tenantPayments',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TenantPaymentsPage()),
+            builder: (context, state) => const TenantPaymentsPage(),
           ),
           GoRoute(
             path: AppRoutes.tenantMore,
             name: 'tenantMore',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TenantMorePage()),
+            builder: (context, state) => const TenantMorePage(),
+          ),
+        ],
+      ),
+
+      // ==================== PROVIDER SHELL ROUTES ====================
+      ShellRoute(
+        navigatorKey: _providerShellNavigatorKey,
+        builder: (context, state, child) => ProviderShell(child: child),
+        routes: [
+          GoRoute(
+            path: AppRoutes.providerDashboard,
+            name: 'providerDashboard',
+            builder: (context, state) => const ProviderDashboardPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.providerListings,
+            name: 'providerListings',
+            builder: (context, state) => const ProviderListingsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.providerOrders,
+            name: 'providerOrders',
+            builder: (context, state) => const ProviderOrdersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.providerReviews,
+            name: 'providerReviews',
+            builder: (context, state) => const ProviderReviewsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.providerMore,
+            name: 'providerMore',
+            builder: (context, state) => const ProviderMorePage(),
           ),
         ],
       ),
@@ -323,6 +374,72 @@ class AppRouter {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const TenantMaintenancePage(),
       ),
+      GoRoute(
+        path: AppRoutes.tenantProfile,
+        name: 'tenantProfile',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const TenantProfilePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantLease,
+        name: 'tenantLease',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const TenantLeasePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantMoveOut,
+        name: 'tenantMoveOut',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const MoveOutRequestPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantTicketDetail,
+        name: 'tenantTicketDetail',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return TenantTicketDetailPage(ticketId: id);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.ticketDetail,
+        name: 'ticketDetail',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return TicketDetailPage(ticketId: id);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.charges,
+        name: 'charges',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ChargesManagementPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.enquiries,
+        name: 'enquiries',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const EnquiriesPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        name: 'notifications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantNotifications,
+        name: 'tenantNotifications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const NotificationsPage(isTenantView: true),
+      ),
+      GoRoute(
+        path: AppRoutes.providerNotifications,
+        name: 'providerNotifications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const NotificationsPage(isProviderView: true),
+      ),
     ],
   );
 }
@@ -335,6 +452,7 @@ class AppRoutes {
   static const String claimCode = '/claim-code';
   static const String createOrg = '/create-org';
   static const String linkTenant = '/link-tenant';
+  static const String providerOnboarding = '/provider-onboarding';
 
   // Admin routes
   static const String dashboard = '/';
@@ -355,8 +473,34 @@ class AppRoutes {
 
   // Tenant routes
   static const String tenantDashboard = '/tenant';
+  static const String tenantExplore = '/tenant/explore';
+  static const String tenantLiving = '/tenant/living';
   static const String tenantInvoices = '/tenant/invoices';
   static const String tenantPayments = '/tenant/payments';
   static const String tenantMore = '/tenant/more';
   static const String tenantMaintenance = '/tenant/maintenance';
+  static const String tenantProfile = '/tenant/profile';
+  static const String tenantLease = '/tenant/lease';
+  static const String tenantMoveOut = '/tenant/move-out';
+  static const String tenantTicketDetail = '/tenant/maintenance/:id';
+  static const String tenantEnquiries = '/tenant/enquiries';
+  static const String tenantOrders = '/tenant/orders';
+  static const String tenantCart = '/tenant/cart';
+  
+  // Admin detail routes
+  static const String ticketDetail = '/maintenance/:id';
+  static const String charges = '/charges';
+  static const String enquiries = '/enquiries';
+  static const String notifications = '/notifications';
+  
+  // Tenant detail routes
+  static const String tenantNotifications = '/tenant/notifications';
+  
+  // Provider routes
+  static const String providerDashboard = '/provider';
+  static const String providerListings = '/provider/listings';
+  static const String providerOrders = '/provider/orders';
+  static const String providerReviews = '/provider/reviews';
+  static const String providerMore = '/provider/more';
+  static const String providerNotifications = '/provider/notifications';
 }

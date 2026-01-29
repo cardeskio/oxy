@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:oxy/theme.dart';
 import 'package:oxy/models/property.dart';
 import 'package:oxy/models/unit.dart';
@@ -7,6 +8,7 @@ import 'package:oxy/models/invoice.dart';
 import 'package:oxy/models/payment.dart';
 import 'package:oxy/models/maintenance_ticket.dart';
 import 'package:oxy/utils/formatters.dart';
+import 'package:oxy/utils/icons.dart';
 
 class PropertyCard extends StatelessWidget {
   final Property property;
@@ -25,6 +27,7 @@ class PropertyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final occupancyRate = unitCount > 0 ? (occupiedCount / unitCount * 100).toInt() : 0;
+    final imageUrl = property.coverImageUrl;
     
     return GestureDetector(
       onTap: onTap,
@@ -44,18 +47,30 @@ class PropertyCard extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // Property image or fallback icon
             Container(
-              width: 56,
-              height: 56,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 color: _getPropertyColor(property.type).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(14),
+                image: imageUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(imageUrl),
+                        fit: BoxFit.cover,
+                        onError: (_, __) {},
+                      )
+                    : null,
               ),
-              child: Icon(
-                _getPropertyIcon(property.type),
-                color: _getPropertyColor(property.type),
-                size: 28,
-              ),
+              child: imageUrl == null
+                  ? Center(
+                      child: HugeIcon(
+                        icon: _getPropertyIcon(property.type),
+                        color: _getPropertyColor(property.type),
+                        size: 28,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -73,7 +88,7 @@ class PropertyCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined, size: 14, color: AppColors.lightOnSurfaceVariant),
+                      HugeIcon(icon: AppIcons.location, size: 14, color: AppColors.lightOnSurfaceVariant),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -92,12 +107,12 @@ class PropertyCard extends StatelessWidget {
                     children: [
                       _InfoChip(
                         label: '$unitCount units',
-                        icon: Icons.door_back_door_outlined,
+                        icon: AppIcons.door,
                       ),
                       const SizedBox(width: 8),
                       _InfoChip(
                         label: '$occupancyRate% occupied',
-                        icon: Icons.people_outline,
+                        icon: AppIcons.people,
                         color: occupancyRate >= 80 ? AppColors.success : (occupancyRate >= 50 ? AppColors.warning : AppColors.error),
                       ),
                     ],
@@ -105,7 +120,7 @@ class PropertyCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            HugeIcon(icon: AppIcons.chevronRight, size: 20, color: Colors.grey.shade400),
           ],
         ),
       ),
@@ -114,9 +129,9 @@ class PropertyCard extends StatelessWidget {
 
   IconData _getPropertyIcon(PropertyType type) {
     switch (type) {
-      case PropertyType.residential: return Icons.home_outlined;
-      case PropertyType.commercial: return Icons.store_outlined;
-      case PropertyType.mixed: return Icons.domain_outlined;
+      case PropertyType.residential: return AppIcons.house;
+      case PropertyType.commercial: return AppIcons.commercial;
+      case PropertyType.mixed: return AppIcons.apartment;
     }
   }
 
@@ -148,7 +163,7 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: chipColor),
+          HugeIcon(icon: icon, size: 12, color: chipColor),
           const SizedBox(width: 4),
           Text(
             label,
@@ -163,17 +178,22 @@ class _InfoChip extends StatelessWidget {
 class UnitCard extends StatelessWidget {
   final Unit unit;
   final String? tenantName;
+  final String? fallbackImageUrl; // Use property image if unit has no image
   final VoidCallback? onTap;
 
   const UnitCard({
     super.key,
     required this.unit,
     this.tenantName,
+    this.fallbackImageUrl,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Use unit image, or fall back to property image
+    final imageUrl = unit.coverImageUrl ?? fallbackImageUrl;
+    
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -185,23 +205,33 @@ class UnitCard extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // Unit image or fallback to label
             Container(
-              width: 48,
-              height: 48,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 color: _getStatusColor(unit.status).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
+                image: imageUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(imageUrl),
+                        fit: BoxFit.cover,
+                        onError: (_, __) {},
+                      )
+                    : null,
               ),
-              child: Center(
-                child: Text(
-                  unit.unitLabel,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: _getStatusColor(unit.status),
-                    fontSize: 14,
-                  ),
-                ),
-              ),
+              child: imageUrl == null
+                  ? Center(
+                      child: Text(
+                        unit.unitLabel,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _getStatusColor(unit.status),
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -210,13 +240,21 @@ class UnitCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      if (unit.unitType != null)
+                      Text(
+                        unit.unitLabel,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (unit.unitType != null) ...[
+                        const SizedBox(width: 6),
                         Text(
-                          unit.unitType!,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
+                          '• ${unit.unitType}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.lightOnSurfaceVariant,
                           ),
                         ),
+                      ],
                       const Spacer(),
                       _StatusBadge(status: unit.status),
                     ],
@@ -233,7 +271,7 @@ class UnitCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.person_outline, size: 14, color: AppColors.lightOnSurfaceVariant),
+                        HugeIcon(icon: AppIcons.person, size: 14, color: AppColors.lightOnSurfaceVariant),
                         const SizedBox(width: 4),
                         Text(
                           tenantName!,
@@ -359,7 +397,7 @@ class TenantCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.phone_outlined, size: 14, color: AppColors.lightOnSurfaceVariant),
+                      HugeIcon(icon: AppIcons.phone, size: 14, color: AppColors.lightOnSurfaceVariant),
                       const SizedBox(width: 4),
                       Text(
                         Formatters.phone(tenant.phone),
@@ -373,7 +411,7 @@ class TenantCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.home_outlined, size: 14, color: AppColors.lightOnSurfaceVariant),
+                        HugeIcon(icon: AppIcons.house, size: 14, color: AppColors.lightOnSurfaceVariant),
                         const SizedBox(width: 4),
                         Text(
                           unitInfo!,
@@ -407,7 +445,7 @@ class TenantCard extends StatelessWidget {
                 ],
               )
             else
-              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              HugeIcon(icon: AppIcons.chevronRight, size: 20, color: Colors.grey.shade400),
           ],
         ),
       ),
@@ -478,7 +516,7 @@ class InvoiceCard extends StatelessWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.warning_amber_rounded, size: 12, color: AppColors.error),
+                        HugeIcon(icon: AppIcons.warning, size: 12, color: AppColors.error),
                         SizedBox(width: 4),
                         Text(
                           'Overdue',
@@ -545,7 +583,7 @@ class InvoiceCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.lightOnSurfaceVariant),
+                HugeIcon(icon: AppIcons.calendar, size: 14, color: AppColors.lightOnSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(
                   'Due: ${Formatters.date(invoice.dueDate)}',
@@ -609,8 +647,8 @@ class PaymentCard extends StatelessWidget {
                 color: AppColors.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                _getMethodIcon(payment.method),
+              child: HugeIcon(
+                icon: _getMethodIcon(payment.method),
                 color: AppColors.success,
                 size: 24,
               ),
@@ -683,9 +721,9 @@ class PaymentCard extends StatelessWidget {
 
   IconData _getMethodIcon(PaymentMethod method) {
     switch (method) {
-      case PaymentMethod.mpesa: return Icons.phone_android;
-      case PaymentMethod.cash: return Icons.payments_outlined;
-      case PaymentMethod.bank: return Icons.account_balance_outlined;
+      case PaymentMethod.mpesa: return AppIcons.phone;
+      case PaymentMethod.cash: return AppIcons.money;
+      case PaymentMethod.bank: return AppIcons.bank;
     }
   }
 }
@@ -777,7 +815,7 @@ class TicketCard extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.door_back_door_outlined, size: 14, color: AppColors.lightOnSurfaceVariant),
+                HugeIcon(icon: AppIcons.door, size: 14, color: AppColors.lightOnSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(
                   unitLabel,
@@ -787,7 +825,7 @@ class TicketCard extends StatelessWidget {
                 ),
                 if (ticket.vendorName != null) ...[
                   const SizedBox(width: 12),
-                  Icon(Icons.handyman_outlined, size: 14, color: AppColors.lightOnSurfaceVariant),
+                  HugeIcon(icon: AppIcons.tools, size: 14, color: AppColors.lightOnSurfaceVariant),
                   const SizedBox(width: 4),
                   Text(
                     ticket.vendorName!,
@@ -802,7 +840,7 @@ class TicketCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.attach_money, size: 14, color: AppColors.primaryTeal),
+                  HugeIcon(icon: AppIcons.money, size: 14, color: AppColors.primaryTeal),
                   Text(
                     Formatters.currency(ticket.totalCost),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(

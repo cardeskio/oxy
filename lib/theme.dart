@@ -180,18 +180,18 @@ ThemeData get lightTheme => ThemeData(
   ),
   brightness: Brightness.light,
   scaffoldBackgroundColor: LightModeColors.lightBackground,
-  appBarTheme: const AppBarTheme(
+  appBarTheme: AppBarTheme(
     backgroundColor: AppColors.primaryNavy,
     foregroundColor: Colors.white,
     elevation: 0,
     scrolledUnderElevation: 0,
     centerTitle: false,
-    titleTextStyle: TextStyle(
+    titleTextStyle: GoogleFonts.cabin(
       fontSize: 20,
       fontWeight: FontWeight.w600,
       color: Colors.white,
     ),
-    iconTheme: IconThemeData(color: Colors.white),
+    iconTheme: const IconThemeData(color: Colors.white),
   ),
   cardTheme: CardThemeData(
     elevation: 0,
@@ -232,7 +232,7 @@ ThemeData get lightTheme => ThemeData(
   chipTheme: ChipThemeData(
     backgroundColor: LightModeColors.lightSurfaceVariant,
     selectedColor: AppColors.primaryNavy,
-    labelStyle: const TextStyle(fontSize: 13),
+    labelStyle: GoogleFonts.cabin(fontSize: 13),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),
@@ -310,13 +310,13 @@ ThemeData get darkTheme => ThemeData(
   ),
   brightness: Brightness.dark,
   scaffoldBackgroundColor: AppColors.darkBackground,
-  appBarTheme: const AppBarTheme(
+  appBarTheme: AppBarTheme(
     backgroundColor: AppColors.darkSurface,
     foregroundColor: AppColors.darkOnSurface,
     elevation: 0,
     scrolledUnderElevation: 0,
     centerTitle: false,
-    titleTextStyle: TextStyle(
+    titleTextStyle: GoogleFonts.cabin(
       fontSize: 20,
       fontWeight: FontWeight.w600,
       color: AppColors.darkOnSurface,
@@ -361,7 +361,7 @@ ThemeData get darkTheme => ThemeData(
   chipTheme: ChipThemeData(
     backgroundColor: DarkModeColors.darkSurfaceVariant,
     selectedColor: AppColors.primaryLight,
-    labelStyle: const TextStyle(fontSize: 13),
+    labelStyle: GoogleFonts.cabin(fontSize: 13),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),

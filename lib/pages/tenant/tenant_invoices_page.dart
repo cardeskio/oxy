@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:oxy/theme.dart';
-import 'package:oxy/services/data_service.dart';
-import 'package:oxy/services/auth_service.dart';
+import 'package:oxy/services/tenant_service.dart';
 import 'package:oxy/models/invoice.dart';
 import 'package:oxy/components/empty_state.dart';
+import 'package:oxy/components/loading_indicator.dart';
 import 'package:oxy/utils/formatters.dart';
 
 class TenantInvoicesPage extends StatefulWidget {
@@ -31,27 +31,62 @@ class _TenantInvoicesPageState extends State<TenantInvoicesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-    final tenantId = authService.tenantLinks.isNotEmpty ? authService.tenantLinks.first.tenantId : null;
+    return Consumer<TenantService>(
+      builder: (context, tenantService, _) {
+        if (tenantService.isLoading) {
+          return Scaffold(
+            backgroundColor: AppColors.lightBackground,
+            appBar: AppBar(
+              backgroundColor: AppColors.primaryTeal,
+              title: const Text('My Invoices', style: TextStyle(color: Colors.white)),
+            ),
+            body: const OxyLoadingOverlay(message: 'Loading invoices...'),
+          );
+        }
 
-    if (tenantId == null) {
-      return Scaffold(
-        backgroundColor: AppColors.lightBackground,
-        appBar: AppBar(
-          backgroundColor: AppColors.primaryTeal,
-          title: const Text('My Invoices', style: TextStyle(color: Colors.white)),
-        ),
-        body: const EmptyState(
-          icon: Icons.error_outline,
-          title: 'No Tenant Access',
-          message: 'You are not linked to any tenant account.',
-        ),
-      );
-    }
+        if (tenantService.currentTenant == null) {
+          return Scaffold(
+            backgroundColor: AppColors.lightBackground,
+            appBar: AppBar(
+              backgroundColor: AppColors.primaryTeal,
+              title: const Text('My Invoices', style: TextStyle(color: Colors.white)),
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.home_outlined, size: 80, color: Colors.grey.shade300),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Not Linked Yet',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'You\'ll have access to invoices once you\'re linked to a property. Browse available properties or share your claim code with a property manager.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.lightOnSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () => context.go('/tenant/explore'),
+                      icon: const Icon(Icons.search),
+                      label: const Text('Explore Properties'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
-    return Consumer<DataService>(
-      builder: (context, dataService, _) {
-        var filteredInvoices = dataService.invoices.where((i) => i.tenantId == tenantId).toList();
+        var filteredInvoices = tenantService.invoices.toList();
 
         if (_selectedStatus != null) {
           filteredInvoices = filteredInvoices.where((i) => i.status == _selectedStatus).toList();
@@ -59,8 +94,8 @@ class _TenantInvoicesPageState extends State<TenantInvoicesPage> {
 
         filteredInvoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        final openCount = dataService.invoices.where((i) => i.tenantId == tenantId && i.status == InvoiceStatus.open).length;
-        final paidCount = dataService.invoices.where((i) => i.tenantId == tenantId && i.status == InvoiceStatus.paid).length;
+        final openCount = tenantService.invoices.where((i) => i.status == InvoiceStatus.open).length;
+        final paidCount = tenantService.invoices.where((i) => i.status == InvoiceStatus.paid).length;
 
         return Scaffold(
           backgroundColor: AppColors.lightBackground,
@@ -68,60 +103,64 @@ class _TenantInvoicesPageState extends State<TenantInvoicesPage> {
             backgroundColor: AppColors.primaryTeal,
             title: const Text('My Invoices', style: TextStyle(color: Colors.white)),
           ),
-          body: Column(
-            children: [
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.all(16),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _FilterChip(
-                        label: 'All',
-                        isSelected: _selectedStatus == null,
-                        onTap: () => setState(() => _selectedStatus = null),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterChip(
-                        label: 'Open ($openCount)',
-                        icon: Icons.pending_outlined,
-                        isSelected: _selectedStatus == InvoiceStatus.open,
-                        onTap: () => setState(() => _selectedStatus = InvoiceStatus.open),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterChip(
-                        label: 'Paid ($paidCount)',
-                        icon: Icons.check_circle_outline,
-                        isSelected: _selectedStatus == InvoiceStatus.paid,
-                        onTap: () => setState(() => _selectedStatus = InvoiceStatus.paid),
-                      ),
-                    ],
+          body: RefreshIndicator(
+            onRefresh: () => tenantService.refresh(),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _FilterChip(
+                          label: 'All',
+                          isSelected: _selectedStatus == null,
+                          onTap: () => setState(() => _selectedStatus = null),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterChip(
+                          label: 'Open ($openCount)',
+                          icon: Icons.pending_outlined,
+                          isSelected: _selectedStatus == InvoiceStatus.open,
+                          onTap: () => setState(() => _selectedStatus = InvoiceStatus.open),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterChip(
+                          label: 'Paid ($paidCount)',
+                          icon: Icons.check_circle_outline,
+                          isSelected: _selectedStatus == InvoiceStatus.paid,
+                          onTap: () => setState(() => _selectedStatus = InvoiceStatus.paid),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: filteredInvoices.isEmpty
-                    ? EmptyState(
-                        icon: Icons.receipt_long_outlined,
-                        title: _selectedStatus == null ? 'No Invoices' : 'No ${_getStatusLabel(_selectedStatus!)} Invoices',
-                        message: _selectedStatus == null
-                            ? 'You don\'t have any invoices yet.'
-                            : 'You don\'t have any ${_getStatusLabel(_selectedStatus!).toLowerCase()} invoices.',
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: filteredInvoices.length,
-                        itemBuilder: (context, index) {
-                          final invoice = filteredInvoices[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: InvoiceCard(invoice: invoice),
-                          );
-                        },
-                      ),
-              ),
-            ],
+                Expanded(
+                  child: filteredInvoices.isEmpty
+                      ? EmptyState(
+                          icon: Icons.receipt_long_outlined,
+                          title: _selectedStatus == null ? 'No Invoices' : 'No ${_getStatusLabel(_selectedStatus!)} Invoices',
+                          message: _selectedStatus == null
+                              ? 'You don\'t have any invoices yet.'
+                              : 'You don\'t have any ${_getStatusLabel(_selectedStatus!).toLowerCase()} invoices.',
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filteredInvoices.length,
+                          itemBuilder: (context, index) {
+                            final invoice = filteredInvoices[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: InvoiceCard(invoice: invoice),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
           ),
         );
       },

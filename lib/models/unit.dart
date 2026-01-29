@@ -1,3 +1,5 @@
+import 'package:oxy/models/property.dart';
+
 enum UnitStatus { vacant, occupied, maintenance }
 
 class Unit {
@@ -12,6 +14,10 @@ class Unit {
   final UnitStatus status;
   final String? meterRefWater;
   final String? meterRefPower;
+  final List<PropertyImage> images;
+  final bool isListed;
+  final String? listingDescription;
+  final List<String> amenities;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,6 +33,10 @@ class Unit {
     required this.status,
     this.meterRefWater,
     this.meterRefPower,
+    this.images = const [],
+    this.isListed = false,
+    this.listingDescription,
+    this.amenities = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -43,6 +53,10 @@ class Unit {
     UnitStatus? status,
     String? meterRefWater,
     String? meterRefPower,
+    List<PropertyImage>? images,
+    bool? isListed,
+    String? listingDescription,
+    List<String>? amenities,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Unit(
@@ -57,6 +71,10 @@ class Unit {
     status: status ?? this.status,
     meterRefWater: meterRefWater ?? this.meterRefWater,
     meterRefPower: meterRefPower ?? this.meterRefPower,
+    images: images ?? this.images,
+    isListed: isListed ?? this.isListed,
+    listingDescription: listingDescription ?? this.listingDescription,
+    amenities: amenities ?? this.amenities,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -73,6 +91,10 @@ class Unit {
     'status': status.name,
     'meter_ref_water': meterRefWater,
     'meter_ref_power': meterRefPower,
+    'images': images.map((i) => i.toJson()).toList(),
+    'is_listed': isListed,
+    'listing_description': listingDescription,
+    'amenities': amenities,
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
   };
@@ -89,6 +111,12 @@ class Unit {
     status: UnitStatus.values.firstWhere((e) => e.name == json['status']),
     meterRefWater: json['meter_ref_water'] as String? ?? json['meterRefWater'] as String?,
     meterRefPower: json['meter_ref_power'] as String? ?? json['meterRefPower'] as String?,
+    images: (json['images'] as List<dynamic>?)
+        ?.map((i) => PropertyImage.fromJson(i as Map<String, dynamic>))
+        .toList() ?? [],
+    isListed: json['is_listed'] as bool? ?? false,
+    listingDescription: json['listing_description'] as String?,
+    amenities: (json['amenities'] as List<dynamic>?)?.cast<String>() ?? [],
     createdAt: DateTime.parse(json['created_at'] as String? ?? json['createdAt'] as String),
     updatedAt: DateTime.parse(json['updated_at'] as String? ?? json['updatedAt'] as String),
   );
@@ -100,4 +128,7 @@ class Unit {
       case UnitStatus.maintenance: return 'Maintenance';
     }
   }
+
+  /// Get the first image URL or null
+  String? get coverImageUrl => images.isNotEmpty ? images.first.url : null;
 }
